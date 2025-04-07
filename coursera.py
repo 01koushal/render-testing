@@ -43,11 +43,20 @@ def get_name_from_verification_page(verification_link):
     try:
         options = webdriver.ChromeOptions()
         options.add_argument("--headless")
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        options.add_argument("--disable-gpu")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.binary_location = "/usr/bin/chromium-browser"
 
+        driver = webdriver.Chrome(executable_path="/usr/bin/chromedriver", options=options)
+
+        print("🔗 Opening verification link:", verification_link)
         driver.get(verification_link)
         time.sleep(10)
+
         all_text = driver.execute_script("return document.body.innerText;")
+        print("📄 Extracted Text:", all_text[:1000])  # Optional: limit output to first 1000 chars
+
         driver.quit()
 
         match = re.search(r"This is to certify that\s+([A-Za-z\s]+)", all_text)
