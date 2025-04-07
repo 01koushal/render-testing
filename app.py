@@ -1,50 +1,17 @@
 from flask import Flask, render_template, request
 import os
-import PyPDF2
-from PIL import Image
-import io
-import fitz
 from werkzeug.utils import secure_filename
+from utils import extract_text_from_pdf, extract_images_from_pdf, is_image_based_pdf
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = '/tmp/uploads'
+app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-# ====== Utility Functions ======
-
-def extract_text_from_pdf(pdf_path):
-    try:
-        with open(pdf_path, "rb") as file:
-            reader = PyPDF2.PdfReader(file)
-            return "".join(page.extract_text() for page in reader.pages if page.extract_text())
-    except Exception as e:
-        print("❌ Error extracting text:", e)
-        return None
-
-def extract_images_from_pdf(pdf_path):
-    try:
-        doc = fitz.open(pdf_path)
-        images = []
-        for page in doc:
-            for img in page.get_images(full=True):
-                base_image = doc.extract_image(img[0])
-                image_bytes = base_image["image"]
-                images.append(Image.open(io.BytesIO(image_bytes)))
-        return images
-    except Exception as e:
-        print("❌ Error extracting images:", e)
-        return []
-
-def is_image_based_pdf(pdf_path):
-    return not extract_text_from_pdf(pdf_path) and bool(extract_images_from_pdf(pdf_path))
 
 def detect_certification_platform(pdf_path):
     text = extract_text_from_pdf(pdf_path)
     if text and "coursera" in text.lower():
         return "coursera"
     return "saylor" if is_image_based_pdf(pdf_path) else None
-
-# ====== Dynamically Run Platform Logic ======
 
 def execute_script(platform, pdf_path):
     try:
@@ -57,10 +24,7 @@ def execute_script(platform, pdf_path):
         else:
             return "❌ Platform not supported."
     except Exception as e:
-        print("❌ Error in execute_script:", e)
         return f"❌ Error during verification: {str(e)}"
-
-# ====== Routes ======
 
 @app.route('/')
 def index():
@@ -68,7 +32,7 @@ def index():
 
 @app.route('/verify', methods=['POST'])
 def verify():
-    file = request.files['certificate']
+    file = request.files.get('certificate')
     if not file or not file.filename.endswith('.pdf'):
         return "Please upload a valid PDF", 400
 
@@ -77,19 +41,11 @@ def verify():
     file.save(filepath)
 
     platform = detect_certification_platform(filepath)
-    print("📌 Detected platform:", platform)
-    print("📁 File saved to:", filepath)
-
     if not platform:
         return "❌ Only Coursera and Saylor certificates are supported.", 400
 
     output = execute_script(platform, filepath)
-    print("📋 Output from verification:", output)
-
     return render_template("result.html", platform=platform.capitalize(), output=output)
 
-# ====== Run App ======
-
 if __name__ == '__main__':
-    from os import environ
-    app.run(debug=False, host='0.0.0.0', port=int(environ.get('PORT', 5000)))
+    app.run(debug=True)
