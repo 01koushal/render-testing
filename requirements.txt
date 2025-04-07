@@ -1,0 +1,9 @@
+Flask
+gunicorn
+PyPDF2
+PyMuPDF
+Pillow
+requests
+selenium
+webdriver-manager
+beautifulsoup4
